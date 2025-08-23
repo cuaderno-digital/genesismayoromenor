@@ -1,0 +1,539 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>MAYOR O MENOR - RED GENESIS 24HS</title>
+
+<!-- NUBE: SUPABASE + FINGERPRINTJS -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/@fingerprintjs/fingerprintjs@3/dist/fp.min.js"></script>
+
+<style>
+  /* ====== TEMA ESPACIAL VIOLETA (SIN IMÁGENES) ====== */
+  html,body{
+    margin:0; height:100%; color:#fff; font-family:"Arial Black", system-ui, sans-serif;
+    text-transform:uppercase; overflow-x:hidden; background:#0b0620;
+    background:
+      radial-gradient(1200px 800px at 20% -10%, rgba(138,43,226,.25), transparent 60%),
+      radial-gradient(1000px 700px at 120% 10%, rgba(72,61,139,.25), transparent 55%),
+      radial-gradient(800px 600px at 50% 120%, rgba(186,85,211,.25), transparent 55%),
+      #0b0620;
+  }
+  body::before{
+    content:""; position:fixed; inset:0; pointer-events:none; opacity:.12;
+    background:
+      radial-gradient(#fff 1px, transparent 1px) 0 0/8px 8px,
+      radial-gradient(#fff 1px, transparent 1px) 4px 4px/10px 10px;
+    mix-blend-mode:screen;
+  }
+
+  /* ====== LAYOUT ====== */
+  .pantalla{display:none; min-height:100dvh; padding:14px 18px; box-sizing:border-box;
+    display:flex; flex-direction:column; align-items:center; gap:10px;}
+  #pantalla-bienvenida{display:flex;}
+  h1,h2,p{margin:4px 0;}
+  h2{font-size:1.6rem; color:#ffd700; letter-spacing:.5px}
+  h1{font-size:1.2rem}
+  .tag{font-size:.95rem; opacity:.9}
+
+  /* ====== FORM ====== */
+  input,button, a.btn{width:92%; max-width:420px; padding:14px 16px; border-radius:14px; border:none;
+    font-weight:900; letter-spacing:.5px; text-decoration:none; text-align:center}
+  #input-usuario{background:#1b1142; color:#fff; text-align:center; border:2px solid #7DF9FF; outline:none}
+  #input-usuario::placeholder{color:#e6e6e6}
+  .btn-primario{background:#ffd700; color:#1a1a1a; cursor:pointer}
+  .btn-primario:disabled{opacity:.55; cursor:not-allowed; filter:grayscale(.15)}
+
+  /* ====== TABLERO ====== */
+  .encabezado{display:flex; flex-direction:column; align-items:center; gap:6px; width:100%}
+  .consigna{color:#e7e0ff; font-size:1rem}
+  .info{font-size:.95rem; opacity:.9}
+  .status{margin-top:6px; font-size:1rem}
+  .grid-cartas{display:grid; grid-template-columns:repeat(5,62px); gap:10px; margin:10px 0}
+  @media (min-width:420px){ .grid-cartas{grid-template-columns:repeat(10,62px);} }
+
+  .carta{
+    width:62px; height:88px; border-radius:12px; background:#fff; color:#000;
+    display:flex; align-items:center; justify-content:center; position:relative;
+    box-shadow:0 4px 18px rgba(0,0,0,.35); transform:translateZ(0);
+  }
+  .carta .rango{font-size:1.2rem; font-weight:900}
+  .carta .palo{position:absolute; bottom:6px; right:8px; font-size:1rem}
+  .back{
+    background:
+      linear-gradient(135deg, #2b1b5e 0%, #5927a0 45%, #2b1b5e 100%);
+    color:#fff; border:2px solid rgba(255,255,255,.25);
+    display:flex; align-items:center; justify-content:center;
+  }
+  .back::after{content:"🪐"; font-size:1.4rem; opacity:.9}
+
+  /* ====== CONTROLES ====== */
+  .zona-acciones{display:flex; flex-direction:column; gap:10px; width:100%; max-width:480px}
+  .fila{display:flex; gap:10px; justify-content:center}
+  .btn{flex:1; padding:14px 10px; border-radius:14px; border:none; font-weight:900; cursor:pointer}
+  .btn:disabled{opacity:.55; cursor:not-allowed; filter:grayscale(.15)}
+  .btn-mayor{background:#7cf1ff; color:#10252b}
+  .btn-menor{background:#ff94e9; color:#2a0f26}
+  .btn-seguir{background:#9cff57; color:#143014}
+  .btn-retirar{background:#ffdf6b; color:#3a2700}
+  .oculto{display:none !important}
+
+  /* ====== MENSAJE ====== */
+  #mensaje{margin-top:8px; font-size:1.05rem; text-align:center; white-space:pre-line}
+
+  /* ====== WSP ====== */
+  .btn-wsp{
+    background:linear-gradient(180deg,#25D366,#128C7E);
+    color:#fff; display:none; border-radius:14px;
+    box-shadow:0 6px 0 #0c5e51, 0 10px 18px rgba(0,0,0,.35);
+    text-transform:uppercase;
+  }
+
+  /* ====== CONFETI ====== */
+  .confeti{position:fixed; inset:0; pointer-events:none; z-index:99999}
+</style>
+</head>
+<body>
+
+<!-- ================== BIENVENIDA ================== -->
+<div id="pantalla-bienvenida" class="pantalla">
+  <h2>🌌 RED GENESIS 24HS 🌟</h2>
+  <h1>🚀 BIENVENIDO A MAYOR O MENOR ✨</h1>
+  <p class="tag">INGRESÁ TU USUARIO PARA JUGAR 👩‍🚀🛰️</p>
+  <input id="input-usuario" type="text" placeholder="ESCRIBÍ TU USUARIO" />
+  <button id="btn-primario" class="btn-primario" onclick="iniciar()">INGRESAR ✅</button>
+</div>
+
+<!-- ================== JUEGO ================== -->
+<div id="pantalla-juego" class="pantalla">
+  <div class="encabezado">
+    <h2>🌌 RED GENESIS 24HS 🌟</h2>
+    <p class="consigna">🚀 TIRÁ MAYOR O MENOR Y QUE LA GALAXIA DECIDA TU SUERTE ✨</p>
+    <p class="info" id="info-jugador">👤 TIRADOR: -</p>
+    <p class="status" id="status">💎 BASE: $1.000 — GANANCIA ACTUAL: $1.000</p>
+  </div>
+
+  <!-- Cartas: 1 visible + 9 boca abajo -->
+  <div id="cartas" class="grid-cartas"></div>
+
+  <!-- Acciones -->
+  <div class="zona-acciones">
+    <div id="grupo-eleccion" class="fila">
+      <button id="btn-mayor" class="btn btn-mayor" onclick="elegir('mayor')">📈 MAYOR</button>
+      <button id="btn-menor" class="btn btn-menor" onclick="elegir('menor')">📉 MENOR</button>
+    </div>
+
+    <div id="grupo-post" class="fila oculto">
+      <button id="btn-seguir" class="btn btn-seguir" onclick="seguir()">🚀 ARRIESGAR Y SEGUIR</button>
+      <button id="btn-retirar" class="btn btn-retirar" onclick="retirar()">💰 RETIRARSE CON LO GANADO</button>
+    </div>
+
+    <a id="btn-wsp" class="btn btn-wsp" target="_blank" rel="noopener">RECLAMAR POR WHATSAPP</a>
+  </div>
+
+  <div id="mensaje"></div>
+</div>
+
+<canvas id="canvas-confeti" class="confeti"></canvas>
+
+<script>
+  /* ================== CONEXIÓN A LA NUBE (SUPABASE) ================== */
+  const SUPABASE_URL = 'https://ueiiyibsnmapzygpmeza.supabase.co';
+  const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVlaWl5aWJzbm1hcHp5Z3BtZXphIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTEzODc2NzMsImV4cCI6MjA2Njk2MzY3M30.8yDCfUXBhqeEyFvPL5Pz7W5WWlbK4N25UOEXx4n1hdo';
+  const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { persistSession: false }});
+
+  /* ===== IDENTIDAD ===== */
+  const CASINO = "CASINO GENESIS MAYOR O MENOR";
+
+  /* ===== WhatsApp ===== */
+  const WSP_NUMERO = '5491131528198';
+  function armarLinkWsp(usuario, premioTexto){
+    const texto = `Hola, soy ${usuario}, gané ${premioTexto} en GENESIS MAYOR O MENOR.`;
+    return `https://wa.me/${WSP_NUMERO}?text=${encodeURIComponent(texto)}`;
+  }
+
+  /* ===== Fecha/Hora AR ===== */
+  function fechaHoyAR() {
+    return new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'America/Argentina/Buenos_Aires',
+      year:'numeric', month:'2-digit', day:'2-digit'
+    }).format(new Date());
+  }
+  function ahoraARIso() {
+    const tz = 'America/Argentina/Buenos_Aires';
+    const d = new Date();
+    const parts = Object.fromEntries(
+      new Intl.DateTimeFormat('en-CA', {
+        timeZone: tz,
+        year: 'numeric', month: '2-digit', day: '2-digit',
+        hour: '2-digit', minute: '2-digit', second: '2-digit',
+        hour12: false
+      }).formatToParts(d).map(p => [p.type, p.value])
+    );
+    return `${parts.year}-${parts.month}-${parts.day}T${parts.hour}:${parts.minute}:${parts.second}-03:00`;
+  }
+function premioFormatoAR(n) {
+  return '$' + Number(n).toLocaleString('es-AR');
+}
+  /* ===== Helpers premios ===== */
+  function numPlano(n){ return String(Math.round(Number(n)||0)); }   // "14000"
+  function toMoney(n){ return `$${Number(n).toLocaleString('es-AR')}`; } // "$14.000"
+
+  /* ===== Bloque local por dispositivo (por día/casino) ===== */
+  function _lockKey(){ return `rglock_${CASINO}_${fechaHoyAR()}`; }
+  function setLocalLock(obj){ try{ localStorage.setItem(_lockKey(), JSON.stringify(obj||true)); }catch(e){} }
+  function getLocalLock(){
+    try{ const v = localStorage.getItem(_lockKey()); return v ? JSON.parse(v) : null; }
+    catch(e){ return null; }
+  }
+
+  /* ===== Fingerprint con fallback (por si falla lib) ===== */
+  let fingerprint = "";
+  const fpReady = FingerprintJS.load()
+    .then(fp => fp.get().then(res => { fingerprint = res.visitorId; }))
+    .catch(async () => {
+      const seedKey = 'rg_seed';
+      let seed = localStorage.getItem(seedKey);
+      if(!seed){ seed = Math.random().toString(36).slice(2)+Date.now(); localStorage.setItem(seedKey, seed); }
+      const txt = [
+        navigator.userAgent, navigator.language, navigator.platform,
+        screen.width+'x'+screen.height+'@'+(window.devicePixelRatio||1), seed
+      ].join('|');
+      const enc = new TextEncoder().encode(txt);
+      const buf = await crypto.subtle.digest('SHA-256', enc);
+      fingerprint = [...new Uint8Array(buf)].map(b=>b.toString(16).padStart(2,'0')).join('');
+    });
+
+  /* ===== Estado ===== */
+  const palos = ["🪙", "🍷", "⚔️", "🌿"]; // oros, copas, espadas, bastos
+  const BASE = 1000;
+  let usuario = "";
+  let secuencia = [];  // 10 cartas
+  let indice = 0;      // 0..9
+  let puedeElegir = true;
+  let confetiRAF = null;
+  let confetiParticles = [];
+
+  function gananciaPorPaso(paso){
+    if (paso <= 0) return BASE;
+    if (paso < 9)  return BASE + paso*1000;
+    return BASE + 8*1000 + 5000; // 14.000 final
+  }
+
+  /* ===== Nube: bloqueo por USUARIO (tabla sin fingerprint) ===== */
+  const USA_FINGERPRINT = true;
+
+  function whereUserOrFp(query, user, fp) {
+    return USA_FINGERPRINT
+      ? query.or(`usuario.eq.${user},fingerprint.eq.${fp}`)
+      : query.or(`usuario.eq.${user}`);
+  }
+
+  async function yaJugoHoy(user, fp){
+    try{
+      let q = sb.from('giros')
+        .select('premio, usuario')
+        .eq('fecha', fechaHoyAR())
+        .eq('casino', CASINO)
+        .limit(1)
+        .maybeSingle();
+      q = whereUserOrFp(q, user, fp);
+      const { data, error } = await q;
+      if (error && error.code !== 'PGRST116'){ console.error('yaJugoHoy error:', error); return null; }
+      if (!data) return null;
+      return { premio: data.premio || '-', usuarioReal: data.usuario || user };
+    }catch(e){ console.error('yaJugoHoy ex:', e); return null; }
+  }
+
+  // Guarda SIEMPRE el resultado final (monto plano). Si hay registro hoy => UPDATE; si no => INSERT.
+  function buildPayloadBase(user, fp){
+    const base = { usuario: user, fecha: fechaHoyAR(), hora: ahoraARIso(), casino: CASINO };
+    return USA_FINGERPRINT ? { ...base, fingerprint: fp } : base;
+  }
+
+  async function registrarResultado(user, fp, premioPlano){
+    try{
+      let q = sb.from('giros')
+        .update({ premio: premioPlano, hora: ahoraARIso() })
+        .eq('fecha', fechaHoyAR())
+        .eq('casino', CASINO)
+        .select('usuario');
+      q = whereUserOrFp(q, user, fp);
+      const { data: updData, error: updErr } = await q;
+      const filas = Array.isArray(updData) ? updData.length : 0;
+      if (updErr || filas === 0){
+        const payload = { ...buildPayloadBase(user, fp), premio: premioPlano };
+        const { error: insErr } = await sb.from('giros').insert([payload]);
+        if (insErr) console.error('insert fallo:', insErr);
+      }
+    }catch(e){ console.error('registrarResultado ex:', e); }
+  }
+
+  /* ================== INICIO ================== */
+  async function iniciar(){
+    const input = document.getElementById("input-usuario");
+    const nombre = input.value.trim();
+    if(!nombre){
+      input.style.border = '2px solid #ff4747'; // cosito rojo
+      input.focus();
+      return;
+    }
+    input.style.border = '2px solid #7DF9FF';
+    usuario = nombre;
+
+    document.getElementById('btn-primario').disabled = true;
+
+    // 1) Bloqueo local inmediato
+    const lock = getLocalLock();
+    if (lock) {
+      document.getElementById("pantalla-bienvenida").style.display="none";
+      document.getElementById("pantalla-juego").style.display="flex";
+      document.getElementById("info-jugador").innerText = `👤 TIRADOR: ${usuario}`;
+      nuevaPartida(true);
+      const premioMostrado = /^\d+$/.test(lock.premio) ? toMoney(lock.premio) : lock.premio;
+      setMensaje(`⛔ YA JUGASTE HOY.\n👤 ${String(lock.usuario||usuario).toUpperCase()} — 🎁 ${premioMostrado}\n📲 Si es un error, escribinos por WhatsApp.`);
+      bloquearJuego();
+      return;
+    }
+
+    // 2) Esperar fingerprint (por si luego activás usa_fingerprint)
+    await fpReady;
+
+    // 3) Chequeo en nube
+    const jugado = await yaJugoHoy(usuario, fingerprint);
+
+    // 4) Mostrar juego
+    document.getElementById("pantalla-bienvenida").style.display="none";
+    document.getElementById("pantalla-juego").style.display="flex";
+    document.getElementById("info-jugador").innerText = `👤 TIRADOR: ${usuario}`;
+    document.getElementById('btn-wsp').style.display = 'none';
+
+    if (jugado){
+      const premioMostradoCloud = /^\d+$/.test(jugado.premio) ? toMoney(jugado.premio) : jugado.premio;
+      setLocalLock({ usuario: jugado.usuarioReal, premio: jugado.premio }); // sincroniza bloqueo local
+      nuevaPartida(true);
+      setMensaje(`⛔ YA JUGASTE HOY.\n👤 ${jugado.usuarioReal.toUpperCase()} — 🎁 ${premioMostradoCloud}\n📲 Si es un error, escribinos por WhatsApp.`);
+      bloquearJuego();
+      return;
+    }
+
+    // 5) Habilitado para jugar
+    nuevaPartida(false);
+    setMensaje(`🌟 ${usuario}, TENÉS ${toMoney(BASE)} DE REGALO POR PARTICIPAR.\n📈 ELEGÍ MAYOR O 📉 MENOR PARA LA PRÓXIMA CARTA.`);
+    document.getElementById('btn-seguir').disabled = false;
+    document.getElementById('btn-retirar').disabled = false;
+    document.getElementById('btn-mayor').disabled = false;
+    document.getElementById('btn-menor').disabled = false;
+  }
+
+  /* ================== PARTIDA ================== */
+  function nuevaPartida(disabled){
+    // crear mazo 1..12 por palos
+    const mazo=[];
+    for(let r=1;r<=12;r++){
+      for(let p of palos){ mazo.push({rango:r,palo:p}); }
+    }
+    // mezclar
+    for(let i=mazo.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [mazo[i],mazo[j]]=[mazo[j],mazo[i]]; }
+
+    secuencia = mazo.slice(0,10);
+    indice = 0;
+    puedeElegir = !disabled;
+    render(disabled);
+    setGanancia(0);
+  }
+
+  function render(disabled=false){
+    const cont = document.getElementById("cartas");
+    cont.innerHTML = "";
+    for(let i=0;i<10;i++){
+      if(i<=indice){
+        cont.appendChild(crearCarta(secuencia[i], true));
+      }else{
+        const c = crearCarta(null, false);
+        if (disabled) c.classList.add('disabled');
+        cont.appendChild(c);
+      }
+    }
+  }
+
+  function crearCarta(carta, visible){
+    const el = document.createElement("div");
+    el.className = "carta" + (visible ? "" : " back");
+
+    if(visible && carta){
+      el.style.background = "linear-gradient(135deg, #fff 70%, #fef4d1 100%)";
+      el.style.border = "2px solid #d4af37";
+      el.style.color = "#000";
+
+      const r = document.createElement("div");
+      r.className = "rango";
+      r.textContent = String(carta.rango);
+
+      const p = document.createElement("div");
+      p.className = "palo";
+      p.textContent = carta.palo;
+
+      el.appendChild(r);
+      el.appendChild(p);
+    }
+    return el;
+  }
+
+  function setGanancia(paso){
+    const actual = gananciaPorPaso(paso);
+    document.getElementById("status").innerText =
+      `💎 BASE: ${toMoney(BASE)} — GANANCIA ACTUAL: ${toMoney(actual)}`;
+  }
+
+  function setMensaje(txt){ document.getElementById("mensaje").innerText = txt; }
+
+  function mostrarGrupo(cual){
+    const gElec = document.getElementById("grupo-eleccion");
+    const gPost = document.getElementById("grupo-post");
+    if(cual==="eleccion"){ gElec.classList.remove("oculto"); gPost.classList.add("oculto"); }
+    else if(cual==="post"){ gElec.classList.add("oculto"); gPost.classList.remove("oculto"); }
+    else { gElec.classList.add("oculto"); gPost.classList.add("oculto"); }
+  }
+
+  function bloquearJuego(){
+    puedeElegir = false;
+    document.querySelectorAll('.btn').forEach(b=>b.disabled=true);
+    mostrarGrupo("ninguno");
+  }
+
+  function desbloquearJuego(){
+    puedeElegir = true;
+    document.querySelectorAll('.btn').forEach(b=>b.disabled=false);
+  }
+
+  /* ================== LÓGICA MAYOR/MENOR ================== */
+  async function elegir(tipo){
+    if(!puedeElegir) return;
+    if(indice>=9) return;
+
+    // anti doble click durante el paso
+    document.getElementById('btn-mayor').disabled = true;
+    document.getElementById('btn-menor').disabled = true;
+
+    const actual = secuencia[indice].rango;
+    const prox   = secuencia[indice+1].rango;
+
+    const acierta = (tipo==="mayor") ? (prox >= actual) : (prox <= actual);
+
+    indice++;
+    render();
+
+    if(acierta){
+      setGanancia(indice);
+
+      // ÚLTIMA CARTA → GANA TODO
+      if(indice===9){
+        const ganadoFinal = gananciaPorPaso(indice);
+        const premioTxt   = toMoney(ganadoFinal);
+
+
+        setMensaje(`🎉 FELICIDADES ${usuario} 🎉\n🎁 GANASTE: ${premioTxt}\n📸 SACÁ CAPTURA Y RECLAMÁ POR WHATSAPP`);
+        confetiStart();
+
+        const btnWsp = document.getElementById('btn-wsp');
+        btnWsp.href = armarLinkWsp(usuario, premioTxt);
+        btnWsp.style.display = 'inline-block';
+
+        await registrarResultado(usuario, fingerprint, premioTxt);
+        setLocalLock({ usuario, premio: premioTxt });
+        bloquearJuego();
+        return;
+      }
+
+      setMensaje(`✅ ¡BIEN ${usuario}! ACERTASTE.\n🛰️ ¿QUERÉS ARRIESGAR Y SEGUIR O RETIRARTE CON LO GANADO?`);
+      mostrarGrupo("post");
+      document.getElementById('btn-seguir').disabled = false;
+      document.getElementById('btn-retirar').disabled = false;
+    } else {
+  // PERDIÓ → queda BASE
+  confetiStop();
+
+  const premioTxt = toMoney(BASE); // "$1.000"
+
+  setMensaje(`❌ ${usuario}, PERDISTE ESTA RONDA.\n💥 TE QUEDÁS SOLO CON LA BASE: ${premioTxt}.`);
+
+  const btnWsp = document.getElementById('btn-wsp');
+  btnWsp.href = armarLinkWsp(usuario, `${premioTxt} (BASE)`);
+  btnWsp.style.display = 'inline-block';
+
+  await registrarResultado(usuario, fingerprint, premioTxt); // se guarda "$1.000"
+  setLocalLock({ usuario, premio: premioTxt });              // lock local del día
+  bloquearJuego();
+}
+
+    // Se reactivan al tocar "seguir"
+    document.getElementById('btn-mayor').disabled = true;
+    document.getElementById('btn-menor').disabled = true;
+  }
+
+  function seguir(){
+    setMensaje("🚀 OK, ARRIESGÁS TODO. ELEGÍ 📈 MAYOR O 📉 MENOR PARA LA PRÓXIMA CARTA.");
+    mostrarGrupo("eleccion");
+    document.getElementById('btn-mayor').disabled = false;
+    document.getElementById('btn-menor').disabled = false;
+  }
+
+  async function retirar(){
+    const ganado = gananciaPorPaso(indice);
+    const premioTxt   = toMoney(ganado);
+
+    setMensaje(`🎉 FELICIDADES ${usuario} 🎉\n🎁 GANASTE: ${premioTxt}\n📸 CAPTURÁ Y RECLAMÁ POR WHATSAPP`);
+    confetiStart();
+
+    const btnWsp = document.getElementById('btn-wsp');
+    btnWsp.href = armarLinkWsp(usuario, premioTxt);
+    btnWsp.style.display = 'inline-block';
+
+    await registrarResultado(usuario, fingerprint, premioTxt);
+    setLocalLock({ usuario, premio: premioTxt });
+    bloquearJuego();
+  }
+
+  /* ================== CONFETI ================== */
+  function confetiStart(){
+    if (confetiRAF) return;
+    const canvas = document.getElementById("canvas-confeti");
+    const ctx = canvas.getContext("2d");
+    function resize(){ canvas.width = innerWidth; canvas.height = innerHeight; }
+    resize(); addEventListener("resize", resize);
+
+    const N = 220;
+    confetiParticles = Array.from({ length: N }, () => ({
+      x: Math.random()*canvas.width, y: -Math.random()*canvas.height,
+      r: Math.random()*6+3, c: Math.random()>0.5?"#FFD700":"#C0C0C0",
+      s: Math.random()*2+1, t: Math.random()*Math.PI*2
+    }));
+
+    function loop(){
+      ctx.clearRect(0,0,canvas.width,canvas.height);
+      confetiParticles.forEach(p=>{
+        ctx.beginPath(); ctx.fillStyle=p.c; ctx.arc(p.x,p.y,p.r,0,Math.PI*2); ctx.fill();
+        p.t += 0.03; p.y += p.s + Math.sin(p.t)*0.4; p.x += Math.cos(p.t)*0.4;
+        if(p.y>canvas.height+10){ p.y=-10; p.x=Math.random()*canvas.width; }
+        if(p.x<-10) p.x=canvas.width+10; if(p.x>canvas.width+10) p.x=-10;
+      });
+      confetiRAF = requestAnimationFrame(loop);
+    }
+    loop();
+  }
+
+  function confetiStop(){
+    const canvas = document.getElementById("canvas-confeti");
+    const ctx = canvas.getContext("2d");
+    if (confetiRAF) cancelAnimationFrame(confetiRAF);
+    confetiRAF = null; confetiParticles = [];
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+  }
+
+  // Mostrar bienvenida al cargar
+  document.getElementById("pantalla-bienvenida").style.display="flex";
+</script>
+</body>
+</html>
