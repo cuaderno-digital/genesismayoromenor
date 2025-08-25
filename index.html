@@ -129,7 +129,7 @@
       <button id="btn-retirar" class="btn btn-retirar" onclick="retirar()">💰 RETIRARSE CON LO GANADO</button>
     </div>
 
-    <a id="btn-wsp" class="btn btn-wsp" target="_blank" rel="noopener">RECLAMAR POR WHATSAPP</a>
+    <button id="btn-wsp" class="btn btn-wsp">SACÁ CAPTURA Y RECLAMÁ PREMIO</button>
   </div>
 
   <div id="mensaje"></div>
@@ -147,11 +147,6 @@
   const CASINO = "CASINO GENESIS MAYOR O MENOR";
 
   /* ===== WhatsApp ===== */
-  const WSP_NUMERO = '5491131528198';
-  function armarLinkWsp(usuario, premioTexto){
-    const texto = `Hola, soy ${usuario}, gané ${premioTexto} en GENESIS MAYOR O MENOR.`;
-    return `https://wa.me/${WSP_NUMERO}?text=${encodeURIComponent(texto)}`;
-  }
 
   /* ===== Fecha/Hora AR ===== */
   function fechaHoyAR() {
@@ -438,7 +433,6 @@ function premioFormatoAR(n) {
         confetiStart();
 
         const btnWsp = document.getElementById('btn-wsp');
-        btnWsp.href = armarLinkWsp(usuario, premioTxt);
         btnWsp.style.display = 'inline-block';
 
         await registrarResultado(usuario, fingerprint, premioTxt);
@@ -460,7 +454,6 @@ function premioFormatoAR(n) {
   setMensaje(`❌ ${usuario}, PERDISTE ESTA RONDA.\n💥 TE QUEDÁS SOLO CON LA BASE: ${premioTxt}.`);
 
   const btnWsp = document.getElementById('btn-wsp');
-  btnWsp.href = armarLinkWsp(usuario, `${premioTxt} (BASE)`);
   btnWsp.style.display = 'inline-block';
 
   await registrarResultado(usuario, fingerprint, premioTxt); // se guarda "$1.000"
@@ -488,7 +481,6 @@ function premioFormatoAR(n) {
     confetiStart();
 
     const btnWsp = document.getElementById('btn-wsp');
-    btnWsp.href = armarLinkWsp(usuario, premioTxt);
     btnWsp.style.display = 'inline-block';
 
     await registrarResultado(usuario, fingerprint, premioTxt);
